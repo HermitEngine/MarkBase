@@ -1,0 +1,14 @@
+{
+  "name": "markbase/wiki",
+  "description": "Filesystem-backed personal wiki",
+  "type": "project",
+  "require": {
+    "php": ">=8.1",
+    "league/commonmark": "^2.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "MarkBase\\": "src/"
+    }
+  }
+}
