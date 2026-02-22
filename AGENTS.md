@@ -40,8 +40,9 @@ Content roots:
   - Full-text index in `cache/search_index.json`.
   - Results page includes snippets and highlights.
   - Backlinks are computed from index.
-  - Index is regenerated automatically on save, create, move, and delete mutations.
+  - Index is regenerated automatically on save, create, upload, move, and delete mutations.
 - Action icons in breadcrumb row:
+  - `Upload` opens modal (path + drag-drop/file picker), uploads one or more `.md` files to the selected path, and keeps the modal open after upload.
   - `New` opens modal (path + name), creates blank page, then redirects to edit mode.
   - `Move/Rename` opens modal prefilled with current path/name.
   - `Delete` opens confirmation modal; deletes current page/folder and redirects to parent path.
@@ -62,7 +63,7 @@ Content roots:
   - Bootstraps dependencies and services.
   - Defines URL helpers (`pageUrl`, `editUrl`, `scriptUrl`).
   - Serves internal assets from `/wiki/img-internal/...` and markdown assets from `/wiki/img/...`.
-  - Handles routes for: `view`, `search`, `filter`, `edit`, `save`, `create`, `move`, `delete`, `disambiguate`.
+  - Handles routes for: `view`, `search`, `filter`, `edit`, `save`, `create`, `upload`, `move`, `delete`, `disambiguate`.
   - Renders templates and layout.
 - Core classes (`src/`):
   - `Router.php`: route/action resolution.
@@ -156,6 +157,8 @@ Core flows:
 - Move/rename flow.
 - Move/rename from breadcrumb modal (prefilled values).
 - Delete from breadcrumb modal (confirm/cancel + redirect to parent).
+- Upload modal opens from breadcrumbs with current path prefilled.
+- Upload supports drag-drop and file picker for multiple `.md` files.
 - Home view hides `Move` and `Delete` breadcrumb actions.
 - Folder move/delete recursion.
 - Wiki links, relative markdown links, image links.
@@ -190,7 +193,7 @@ MARKBASE_BASE_URL="http://odin/wiki" tests/full-run.sh
   - verify invalidation on create, update, delete, and move.
 - When changing search/index formats:
   - keep `bin/reindex.php` and query paths in sync.
-- When changing mutation handlers (`save`, `create`, `move`, `delete`):
+- When changing mutation handlers (`save`, `create`, `upload`, `move`, `delete`):
   - preserve automatic `SearchIndexer` rebuild behavior.
 - When changing UI icons/assets:
   - keep template references and internal asset serving (`img-internal/`) in sync.

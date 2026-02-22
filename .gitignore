@@ -1,3 +1,5 @@
-doc
+doc/*
+!doc/
+!doc/README.md
 img
 cache

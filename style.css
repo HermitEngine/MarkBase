@@ -174,7 +174,8 @@ textarea {
 
 .editor-actions button,
 .move button,
-.modal-actions button {
+.modal-actions button,
+.upload-dropzone button {
   padding: 8px 14px;
   border-radius: 8px;
   border: 1px solid #3a5d8f;
@@ -185,11 +186,13 @@ textarea {
 
 .editor-actions button:hover,
 .move button:hover,
-.modal-actions button:hover {
+.modal-actions button:hover,
+.upload-dropzone button:hover {
   background: #274373;
   text-decoration: none;
 }
 
+.editor-actions .primary-action,
 .modal-actions .primary-action {
   border-color: #5ca9cf;
   background: #79d6ff;
@@ -197,6 +200,7 @@ textarea {
   font-weight: 700;
 }
 
+.editor-actions .primary-action:hover,
 .modal-actions .primary-action:hover {
   background: #93e0ff;
 }
@@ -393,20 +397,41 @@ mark {
   color: var(--muted);
 }
 
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.editor-page h1 {
+  margin-top: 0;
+}
+
+.editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .editor textarea {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   font-family: var(--mono);
   padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--panel-soft);
   color: var(--ink);
+  resize: none;
 }
 
 .editor-actions {
   display: flex;
   gap: 12px;
   margin-top: 12px;
+  justify-content: flex-end;
 }
 
 .move {
@@ -455,13 +480,15 @@ mark {
 
 .create-form,
 .move-form,
-.delete-form {
+.delete-form,
+.upload-form {
   display: grid;
   gap: 8px;
 }
 
 .create-form input,
-.move-form input {
+.move-form input,
+.upload-form input {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #0d1524;
@@ -474,6 +501,55 @@ mark {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+
+.upload-dropzone {
+  margin-top: 6px;
+  min-height: 160px;
+  border: 1px dashed #4f6f9c;
+  border-radius: 12px;
+  background: #0d1524;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 16px;
+  gap: 10px;
+}
+
+.upload-dropzone p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.upload-dropzone.drag-over {
+  border-color: #79d6ff;
+  background: #12203a;
+}
+
+.upload-dropzone button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-status {
+  min-height: 24px;
+}
+
+.upload-status p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.upload-status .upload-status-success {
+  color: #9de2b3;
+}
+
+.upload-status .upload-status-error {
+  color: #ffb0b0;
+}
+
+.upload-status .upload-status-info {
+  color: var(--muted);
 }
 
 .modal-message {
@@ -510,10 +586,20 @@ mark {
 
 input:focus,
 textarea:focus,
-button:focus:not(.icon-button),
-a:focus:not(.icon-link) {
+button:focus:not(.icon-button) {
   outline: 2px solid #62b8ff;
   outline-offset: 2px;
+}
+
+a:focus,
+a:focus-visible {
+  outline: 0;
+}
+
+@media (max-width: 640px) {
+  .editor textarea {
+    padding: 8px;
+  }
 }
 
 @media (max-width: 900px) {

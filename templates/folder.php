@@ -28,6 +28,9 @@
         <?php endforeach; ?>
     </div>
     <div class="breadcrumb-actions">
+        <a class="icon-link upload-link js-upload-page" href="<?= htmlspecialchars(scriptUrl($basePath, 'upload.php'), ENT_QUOTES, 'UTF-8') ?>" data-default-path="<?= htmlspecialchars($createPath, ENT_QUOTES, 'UTF-8') ?>" aria-label="Upload markdown files" title="Upload">
+            <img src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/img-internal/icons8-upload-to-the-cloud.svg" alt="">
+        </a>
         <a class="icon-link new-link js-new-page" href="<?= htmlspecialchars(scriptUrl($basePath, 'create.php'), ENT_QUOTES, 'UTF-8') ?>" data-default-path="<?= htmlspecialchars($createPath, ENT_QUOTES, 'UTF-8') ?>" aria-label="New page" title="New">
             <img src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/img-internal/icons8-plus-100.svg" alt="">
         </a>

@@ -360,6 +360,107 @@ switch ($action['action']) {
         }
         header('Location: ' . editUrl($basePath, $targetPath));
         exit;
+    case 'upload':
+        if (!$router->isPost()) {
+            header('Location: ' . pageUrl($basePath));
+            exit;
+        }
+        header('Content-Type: application/json');
+        $dirPath = $repo->normalizePath((string) ($_POST['path'] ?? ''));
+        if (strlen($dirPath) >= 3 && strcasecmp(substr($dirPath, -3), '.md') === 0) {
+            $dirPath = parentDocPath($dirPath);
+        }
+
+        $files = $_FILES['files'] ?? null;
+        if (
+            !is_array($files) ||
+            !isset($files['name'], $files['tmp_name'], $files['error'])
+        ) {
+            http_response_code(400);
+            echo json_encode([
+                'ok' => false,
+                'uploaded' => [],
+                'errors' => [['file' => '', 'message' => 'No files provided.']],
+            ]);
+            exit;
+        }
+
+        $names = is_array($files['name']) ? $files['name'] : [$files['name']];
+        $tmpNames = is_array($files['tmp_name']) ? $files['tmp_name'] : [$files['tmp_name']];
+        $errorsRaw = is_array($files['error']) ? $files['error'] : [$files['error']];
+
+        $uploaded = [];
+        $errors = [];
+
+        foreach ($names as $i => $nameRaw) {
+            $name = basename((string) $nameRaw);
+            $tmpName = (string) ($tmpNames[$i] ?? '');
+            $uploadError = (int) ($errorsRaw[$i] ?? UPLOAD_ERR_NO_FILE);
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                $errors[] = ['file' => $name, 'message' => 'Upload failed (error code ' . $uploadError . ').'];
+                continue;
+            }
+            if (!is_uploaded_file($tmpName)) {
+                $errors[] = ['file' => $name, 'message' => 'Invalid upload source.'];
+                continue;
+            }
+            if (strcasecmp((string) pathinfo($name, PATHINFO_EXTENSION), 'md') !== 0) {
+                $errors[] = ['file' => $name, 'message' => 'Only .md files are allowed.'];
+                continue;
+            }
+
+            $docName = normalizeDocName((string) pathinfo($name, PATHINFO_FILENAME));
+            if (
+                $docName === '' ||
+                $docName === '.' ||
+                $docName === '..' ||
+                str_contains($docName, '/')
+            ) {
+                $errors[] = ['file' => $name, 'message' => 'Invalid file name.'];
+                continue;
+            }
+
+            $targetPath = $repo->normalizePath($dirPath === '' ? $docName : ($dirPath . '/' . $docName));
+            if ($targetPath === '') {
+                $errors[] = ['file' => $name, 'message' => 'Invalid target path.'];
+                continue;
+            }
+
+            $body = file_get_contents($tmpName);
+            if ($body === false) {
+                $errors[] = ['file' => $name, 'message' => 'Failed to read uploaded file.'];
+                continue;
+            }
+
+            try {
+                $repo->writePage($targetPath, $body);
+                $uploaded[] = $targetPath;
+            } catch (\Throwable $e) {
+                $errors[] = ['file' => $name, 'message' => 'Failed to write page.'];
+            }
+        }
+
+        if ($uploaded !== []) {
+            rebuildSearchIndex($indexer);
+        }
+
+        $ok = $uploaded !== [];
+        if (!$ok) {
+            http_response_code(400);
+            if ($errors === []) {
+                $errors[] = ['file' => '', 'message' => 'No valid .md files were uploaded.'];
+            }
+        }
+
+        echo json_encode([
+            'ok' => $ok,
+            'uploaded' => $uploaded,
+            'errors' => $errors,
+        ]);
+        exit;
     case 'move':
         if (!$router->isPost()) {
             header('Location: ' . pageUrl($basePath));

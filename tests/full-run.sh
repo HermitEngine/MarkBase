@@ -80,6 +80,19 @@ http_post() {
     LAST_CODE="$("$CURL_BIN" "${CURL_ARGS[@]}" -D "$LAST_HEADERS" -o "$LAST_BODY" -w '%{http_code}' -X POST "$(url_for "$script")" "${form_args[@]}")"
 }
 
+http_post_upload_files() {
+    local script="$1"
+    local upload_path="$2"
+    shift 2 || true
+    new_capture_files
+    local file_args=()
+    while (($# > 0)); do
+        file_args+=(-F "files[]=@$1")
+        shift
+    done
+    LAST_CODE="$("$CURL_BIN" "${CURL_ARGS[@]}" -D "$LAST_HEADERS" -o "$LAST_BODY" -w '%{http_code}' -X POST "$(url_for "$script")" -F "path=$upload_path" "${file_args[@]}")"
+}
+
 header_value() {
     local wanted="$1"
     awk -v key="$(printf '%s' "$wanted" | tr '[:upper:]' '[:lower:]')" '
@@ -161,6 +174,31 @@ expect_filter_not_has_path() {
     fi
 }
 
+expect_upload_ok() {
+    if ! php -r '
+        $data = json_decode(file_get_contents($argv[1]), true);
+        if (!is_array($data)) {
+            exit(2);
+        }
+        exit(($data["ok"] ?? false) === true ? 0 : 1);
+    ' "$LAST_BODY"; then
+        fail "Upload response did not return ok=true"
+    fi
+}
+
+expect_upload_has_path() {
+    local expected="$1"
+    if ! php -r '
+        $data = json_decode(file_get_contents($argv[1]), true);
+        if (!is_array($data) || !isset($data["uploaded"]) || !is_array($data["uploaded"])) {
+            exit(2);
+        }
+        exit(in_array($argv[2], $data["uploaded"], true) ? 0 : 1);
+    ' "$LAST_BODY" "$expected"; then
+        fail "Upload response missing expected uploaded path: $expected"
+    fi
+}
+
 step() {
     STEP_NO=$((STEP_NO + 1))
     log "[$STEP_NO] $*"
@@ -223,6 +261,9 @@ FOLDER_README_DIR="${TEST_ROOT}/FolderReadme"
 LISTING_DIR="${TEST_ROOT}/ListDir"
 MOVE_SRC="${TEST_ROOT}/MoveSrc"
 MOVE_DST="${TEST_ROOT}/MoveDst"
+UPLOAD_DIR="${TEST_ROOT}/Uploads"
+UPLOAD_ONE_PATH="${UPLOAD_DIR}/UploadOne"
+UPLOAD_TWO_PATH="${UPLOAD_DIR}/UploadTwo"
 
 step "Home page renders with logo/title/footer"
 http_get "index.php"
@@ -234,6 +275,9 @@ expect_body_contains "/img-internal/MarkBase.png"
 step "Home page hides Move/Delete actions"
 expect_body_not_contains "class=\"icon-link move-link js-move-page\""
 expect_body_not_contains "class=\"icon-link delete-link js-delete-page\""
+
+step "Home page includes Upload action"
+expect_body_contains "class=\"icon-link upload-link js-upload-page\""
 
 step "Footer is visible on edit screen and old rename section is absent"
 http_get "edit.php"
@@ -254,6 +298,21 @@ step "Create baseline pages via create endpoint"
 create_doc "$TEST_ROOT" "PageA"
 create_doc "$TEST_ROOT" "Target"
 create_doc "${TEST_ROOT}/Sub" "Target"
+
+step "Upload endpoint accepts multiple markdown files"
+printf '# Upload One\n\nUploaded marker %s\n' "$RUN_ID" > "${TMP_DIR}/UploadOne.md"
+printf '# Upload Two\n\nUploaded marker %s\n' "$RUN_ID" > "${TMP_DIR}/UploadTwo.md"
+http_post_upload_files "upload.php" "$UPLOAD_DIR" "${TMP_DIR}/UploadOne.md" "${TMP_DIR}/UploadTwo.md"
+expect_code "200"
+expect_header_contains "Content-Type: application/json"
+expect_upload_ok
+expect_upload_has_path "$UPLOAD_ONE_PATH"
+expect_upload_has_path "$UPLOAD_TWO_PATH"
+
+view_doc "$UPLOAD_ONE_PATH"
+expect_body_contains "Uploaded marker ${RUN_ID}"
+view_doc "$UPLOAD_TWO_PATH"
+expect_body_contains "Uploaded marker ${RUN_ID}"
 
 step "Save markdown content (including wiki links and search token)"
 printf -v target_content '# Target\n\nTarget marker for %s\n' "$RUN_ID"

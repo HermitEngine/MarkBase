@@ -13,9 +13,10 @@ MarkBase is a lightweight personal wiki for managing Markdown notes without a da
 - Sidebar tree navigation with filter
 - Full-text search with snippets and backlinks
 - Wiki link support (`[[Page]]`, `[[Path/To/Page]]`)
+- Upload Markdown files from breadcrumb modal (drag-drop or file picker, multi-file)
 - Create / Move-Rename / Delete actions from breadcrumb modals
 - Recursive folder move/delete
-- Automatic search index regeneration on save/create/move/delete
+- Automatic search index regeneration on save/create/upload/move/delete
 
 ## Dependencies
 

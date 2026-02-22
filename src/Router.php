@@ -45,6 +45,9 @@ final class Router
         if ($path === 'create') {
             return ['action' => 'create'];
         }
+        if ($path === 'upload') {
+            return ['action' => 'upload'];
+        }
         if ($path === 'move') {
             return ['action' => 'move'];
         }
@@ -71,6 +74,7 @@ final class Router
             'edit.php' => 'edit',
             'save.php' => 'save',
             'create.php' => 'create',
+            'upload.php' => 'upload',
             'move.php' => 'move',
             'delete.php' => 'delete',
             default => null,

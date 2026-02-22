@@ -57,6 +57,24 @@
         </form>
     </div>
 </div>
+<div class="modal-backdrop" id="upload-page-modal" hidden>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="upload-page-title">
+        <h2 id="upload-page-title">Upload Markdown Files</h2>
+        <div class="upload-form">
+            <label for="upload-page-path">Path</label>
+            <input id="upload-page-path" type="text" name="path" placeholder="Optional folder path">
+            <div class="upload-dropzone" id="upload-dropzone">
+                <input id="upload-files-input" type="file" accept=".md,text/markdown" multiple hidden>
+                <p>Drop .md files here</p>
+                <button id="upload-browse-files" type="button">Choose Files</button>
+            </div>
+            <div class="upload-status" id="upload-status" aria-live="polite"></div>
+            <div class="modal-actions">
+                <button id="upload-page-close" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal-backdrop" id="move-page-modal" hidden>
     <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="move-page-title">
         <h2 id="move-page-title">Move or Rename Document</h2>
@@ -96,6 +114,14 @@ const createPathInput = document.getElementById('create-page-path');
 const createNameInput = document.getElementById('create-page-name');
 const createCancel = document.getElementById('create-page-cancel');
 const createTriggers = document.querySelectorAll('.js-new-page');
+const uploadModal = document.getElementById('upload-page-modal');
+const uploadPathInput = document.getElementById('upload-page-path');
+const uploadDropzone = document.getElementById('upload-dropzone');
+const uploadFilesInput = document.getElementById('upload-files-input');
+const uploadBrowseButton = document.getElementById('upload-browse-files');
+const uploadStatus = document.getElementById('upload-status');
+const uploadClose = document.getElementById('upload-page-close');
+const uploadTriggers = document.querySelectorAll('.js-upload-page');
 const moveModal = document.getElementById('move-page-modal');
 const moveFromInput = document.getElementById('move-page-from');
 const movePathInput = document.getElementById('move-page-path');
@@ -111,6 +137,7 @@ const deleteTriggers = document.querySelectorAll('.js-delete-page');
 const basePath = <?= json_encode($basePath) ?>;
 const viewUrl = <?= json_encode(scriptUrl($basePath, 'view.php')) ?>;
 const filterUrl = <?= json_encode(scriptUrl($basePath, 'filter.php')) ?>;
+const uploadUrl = <?= json_encode(scriptUrl($basePath, 'upload.php')) ?>;
 const originalTree = treeContainer ? treeContainer.innerHTML : '';
 const treeStateKey = 'wiki:open-dirs:' + basePath;
 
@@ -241,6 +268,13 @@ function closeCreateModal() {
     createModal.hidden = true;
 }
 
+function closeUploadModal() {
+    if (!uploadModal) {
+        return;
+    }
+    uploadModal.hidden = true;
+}
+
 function closeMoveModal() {
     if (!moveModal) {
         return;
@@ -262,6 +296,7 @@ function openCreateModal(defaultPath) {
     if (!createModal || !createPathInput || !createNameInput) {
         return;
     }
+    closeUploadModal();
     closeMoveModal();
     closeDeleteModal();
     createPathInput.value = defaultPath || '';
@@ -270,11 +305,105 @@ function openCreateModal(defaultPath) {
     createNameInput.focus();
 }
 
+function renderUploadStatus(messages) {
+    if (!uploadStatus) {
+        return;
+    }
+    uploadStatus.innerHTML = '';
+    messages.forEach(item => {
+        const row = document.createElement('p');
+        row.textContent = item.text;
+        row.className = 'upload-status-' + item.type;
+        uploadStatus.appendChild(row);
+    });
+}
+
+async function uploadFiles(fileList) {
+    if (!uploadPathInput || !uploadBrowseButton || !uploadFilesInput) {
+        return;
+    }
+    const files = Array.from(fileList || []).filter(file => file && file.name);
+    if (files.length === 0) {
+        renderUploadStatus([{ type: 'error', text: 'Select at least one .md file.' }]);
+        return;
+    }
+
+    const markdownFiles = files.filter(file => /\.md$/i.test(file.name));
+    const skippedCount = files.length - markdownFiles.length;
+    if (markdownFiles.length === 0) {
+        renderUploadStatus([{ type: 'error', text: 'Only .md files are allowed.' }]);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('path', uploadPathInput.value || '');
+    markdownFiles.forEach(file => {
+        formData.append('files[]', file, file.name);
+    });
+
+    uploadPathInput.disabled = true;
+    uploadFilesInput.disabled = true;
+    uploadBrowseButton.disabled = true;
+    renderUploadStatus([{ type: 'info', text: 'Uploading ' + markdownFiles.length + ' file(s)...' }]);
+
+    try {
+        const res = await fetch(uploadUrl, { method: 'POST', body: formData });
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (_e) {
+            data = {};
+        }
+
+        const uploaded = Array.isArray(data.uploaded) ? data.uploaded : [];
+        const errors = Array.isArray(data.errors) ? data.errors : [];
+        const messages = [];
+
+        if (uploaded.length > 0) {
+            messages.push({ type: 'success', text: 'Uploaded: ' + uploaded.join(', ') });
+        }
+        if (skippedCount > 0) {
+            messages.push({ type: 'error', text: 'Skipped ' + skippedCount + ' non-markdown file(s).' });
+        }
+        errors.forEach(item => {
+            const file = typeof item.file === 'string' ? item.file : '';
+            const message = typeof item.message === 'string' ? item.message : 'Upload failed.';
+            messages.push({ type: 'error', text: (file ? (file + ': ') : '') + message });
+        });
+        if (messages.length === 0) {
+            messages.push({ type: 'error', text: 'Upload failed.' });
+        }
+
+        renderUploadStatus(messages);
+    } catch (_e) {
+        renderUploadStatus([{ type: 'error', text: 'Upload request failed.' }]);
+    } finally {
+        uploadPathInput.disabled = false;
+        uploadFilesInput.disabled = false;
+        uploadBrowseButton.disabled = false;
+        uploadFilesInput.value = '';
+    }
+}
+
+function openUploadModal(defaultPath) {
+    if (!uploadModal || !uploadPathInput) {
+        return;
+    }
+    closeCreateModal();
+    closeMoveModal();
+    closeDeleteModal();
+    uploadPathInput.value = defaultPath || '';
+    renderUploadStatus([]);
+    uploadModal.hidden = false;
+    uploadPathInput.focus();
+}
+
 function openMoveModal(fromPath, defaultPath, defaultName) {
     if (!moveModal || !moveFromInput || !movePathInput || !moveNameInput) {
         return;
     }
     closeCreateModal();
+    closeUploadModal();
     closeDeleteModal();
     moveFromInput.value = fromPath || '';
     movePathInput.value = defaultPath || '';
@@ -288,6 +417,7 @@ function openDeleteModal(path, label, isFolder) {
         return;
     }
     closeCreateModal();
+    closeUploadModal();
     closeMoveModal();
     deletePathInput.value = path || '';
     deleteLabel.textContent = label || path || '';
@@ -301,6 +431,13 @@ createTriggers.forEach(link => {
     link.addEventListener('click', event => {
         event.preventDefault();
         openCreateModal(link.dataset.defaultPath || '');
+    });
+});
+
+uploadTriggers.forEach(link => {
+    link.addEventListener('click', event => {
+        event.preventDefault();
+        openUploadModal(link.dataset.defaultPath || '');
     });
 });
 
@@ -329,6 +466,9 @@ deleteTriggers.forEach(link => {
 if (createCancel) {
     createCancel.addEventListener('click', closeCreateModal);
 }
+if (uploadClose) {
+    uploadClose.addEventListener('click', closeUploadModal);
+}
 if (moveCancel) {
     moveCancel.addEventListener('click', closeMoveModal);
 }
@@ -336,10 +476,50 @@ if (deleteCancel) {
     deleteCancel.addEventListener('click', closeDeleteModal);
 }
 
+if (uploadBrowseButton && uploadFilesInput) {
+    uploadBrowseButton.addEventListener('click', () => {
+        uploadFilesInput.click();
+    });
+}
+
+if (uploadFilesInput) {
+    uploadFilesInput.addEventListener('change', () => {
+        uploadFiles(uploadFilesInput.files);
+    });
+}
+
+if (uploadDropzone) {
+    const preventDefaults = event => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadDropzone.addEventListener(eventName, preventDefaults);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadDropzone.addEventListener(eventName, () => uploadDropzone.classList.add('drag-over'));
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadDropzone.addEventListener(eventName, () => uploadDropzone.classList.remove('drag-over'));
+    });
+    uploadDropzone.addEventListener('drop', event => {
+        const files = event.dataTransfer ? event.dataTransfer.files : null;
+        uploadFiles(files);
+    });
+}
+
 if (createModal) {
     createModal.addEventListener('click', event => {
         if (event.target === createModal) {
             closeCreateModal();
+        }
+    });
+}
+
+if (uploadModal) {
+    uploadModal.addEventListener('click', event => {
+        if (event.target === uploadModal) {
+            closeUploadModal();
         }
     });
 }
@@ -363,6 +543,7 @@ if (deleteModal) {
 document.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
         closeCreateModal();
+        closeUploadModal();
         closeMoveModal();
         closeDeleteModal();
     }
