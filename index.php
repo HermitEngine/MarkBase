@@ -269,6 +269,7 @@ $action = $router->resolve();
 $tree = getTree($repo, $treeCacheFile);
 
 $currentPath = '';
+$currentDocumentPath = '';
 $title = 'Home';
 $content = '';
 
@@ -561,6 +562,7 @@ switch ($action['action']) {
         $renderPath = $repo->relativePath($file);
         $isDirectoryView = $repo->isDirectoryPath($requestedPath);
         $currentPath = $isDirectoryView ? $requestedPath : $renderPath;
+        $currentDocumentPath = $renderPath;
         $html = $renderer->renderFile($renderPath, $file);
         $breadcrumbs = buildBreadcrumbs($basePath, $currentPath);
         $backlinks = $indexer->getBacklinks($renderPath);
@@ -597,6 +599,7 @@ $page = render($baseDir . '/templates/layout.php', [
     'content' => $content,
     'tree' => $tree,
     'currentPath' => $currentPath,
+    'currentDocumentPath' => $currentDocumentPath,
     'basePath' => $basePath,
 ]);
 

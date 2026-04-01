@@ -61,7 +61,6 @@ textarea {
   padding: 16px 24px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 8px 24px var(--shadow);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -221,6 +220,7 @@ textarea {
   grid-template-columns: 280px 1fr;
   min-height: 0;
   flex: 1;
+  background: var(--bg);
 }
 
 .app-footer {
@@ -288,8 +288,14 @@ textarea {
 }
 
 .content {
-  padding: 24px 32px 64px;
+  position: relative;
+  padding: 0 32px 64px;
   overflow: auto;
+  background: var(--bg);
+}
+
+.content > :first-child:not(.breadcrumbs-row) {
+  margin-top: 24px;
 }
 
 .breadcrumbs {
@@ -302,11 +308,19 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-height: calc(var(--search-control-height) + 16px);
+  margin: 0 -32px 20px;
+  padding: 4px 32px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 .breadcrumbs-row .breadcrumbs {
   margin-bottom: 0;
+  min-width: 0;
 }
 
 .breadcrumbs .sep {
@@ -610,6 +624,26 @@ a:focus-visible {
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--border);
+  }
+
+  .content {
+    padding: 0 20px 48px;
+  }
+
+  .content > :first-child:not(.breadcrumbs-row) {
+    margin-top: 20px;
+  }
+
+  .breadcrumbs-row {
+    margin: 0 -20px 20px;
+    padding: 4px 20px;
+    flex-wrap: wrap;
+  }
+
+  .breadcrumb-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
 
   .header {

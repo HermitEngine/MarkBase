@@ -7,6 +7,8 @@ namespace MarkBase;
 final class PageRepo
 {
     private const DIRECTORY_README = 'README.md';
+    private const DIRECTORY_MODE = 0775;
+    private const DIRECTORY_GROUP_WRITE_BIT = 0020;
 
     private string $docRoot;
     private string $imgRoot;
@@ -95,13 +97,13 @@ final class PageRepo
     {
         $file = $this->resolveWriteTarget($path);
         $dir = dirname($file);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
+        $this->ensureDocDirectory($dir);
         if (!$this->isPathAllowed($file, $this->docRoot)) {
             throw new \RuntimeException('Invalid path.');
         }
-        file_put_contents($file, $content);
+        if (file_put_contents($file, $content) === false) {
+            throw new \RuntimeException('Failed to write page.');
+        }
         return $file;
     }
 
@@ -121,9 +123,7 @@ final class PageRepo
         }
         $toFile = $this->resolveWriteTarget($to);
         $dir = dirname($toFile);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
+        $this->ensureDocDirectory($dir);
         if (!$this->isPathAllowed($toFile, $this->docRoot)) {
             throw new \RuntimeException('Invalid target path.');
         }
@@ -153,9 +153,7 @@ final class PageRepo
 
         $toDirectory = $this->docRoot . '/' . $toPath;
         $parent = dirname($toDirectory);
-        if (!is_dir($parent)) {
-            mkdir($parent, 0775, true);
-        }
+        $this->ensureDocDirectory($parent);
         if (!$this->isPathAllowed($toDirectory, $this->docRoot)) {
             throw new \RuntimeException('Invalid target path.');
         }
@@ -446,6 +444,58 @@ final class PageRepo
         }
 
         return $this->docRoot . '/' . $normalized . '.md';
+    }
+
+    private function ensureDocDirectory(string $dir): void
+    {
+        $root = rtrim($this->docRoot, '/');
+        $target = rtrim($dir, '/');
+        if ($target === '') {
+            $target = '/';
+        }
+
+        if ($target !== $root && !str_starts_with($target, $root . '/')) {
+            throw new \RuntimeException('Invalid path.');
+        }
+        if (!is_dir($root)) {
+            throw new \RuntimeException('Document root not found.');
+        }
+        if ($target === $root) {
+            return;
+        }
+
+        $relative = substr($target, strlen($root) + 1);
+        $cursor = $root;
+        foreach (explode('/', $relative) as $part) {
+            if ($part === '' || $part === '.' || $part === '..') {
+                throw new \RuntimeException('Invalid path.');
+            }
+            $cursor .= '/' . $part;
+            if (is_dir($cursor)) {
+                continue;
+            }
+            if (!mkdir($cursor, self::DIRECTORY_MODE) && !is_dir($cursor)) {
+                throw new \RuntimeException('Failed to create directory.');
+            }
+            $this->ensureDirectoryGroupWritable($cursor);
+        }
+    }
+
+    private function ensureDirectoryGroupWritable(string $path): void
+    {
+        $perms = fileperms($path);
+        if ($perms === false) {
+            throw new \RuntimeException('Failed to read directory permissions.');
+        }
+
+        $mode = $perms & 07777;
+        if (($mode & self::DIRECTORY_GROUP_WRITE_BIT) !== 0) {
+            return;
+        }
+
+        if (!chmod($path, $mode | self::DIRECTORY_GROUP_WRITE_BIT)) {
+            throw new \RuntimeException('Failed to set directory permissions.');
+        }
     }
 
     private function isWithinRoot(string $path, string $root): bool

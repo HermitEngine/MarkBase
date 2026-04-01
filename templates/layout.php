@@ -3,6 +3,7 @@
 /** @var string $content */
 /** @var array $tree */
 /** @var string $currentPath */
+/** @var string $currentDocumentPath */
 /** @var string $basePath */
 ?>
 <!doctype html>
@@ -109,6 +110,7 @@ const filterInput = document.getElementById('tree-filter');
 const filterReset = document.getElementById('tree-reset');
 const treeContainer = document.getElementById('tree');
 const treeEmpty = document.getElementById('tree-empty');
+const contentPane = document.querySelector('.content');
 const createModal = document.getElementById('create-page-modal');
 const createPathInput = document.getElementById('create-page-path');
 const createNameInput = document.getElementById('create-page-name');
@@ -135,11 +137,74 @@ const deleteLabel = document.getElementById('delete-page-label');
 const deleteCancel = document.getElementById('delete-page-cancel');
 const deleteTriggers = document.querySelectorAll('.js-delete-page');
 const basePath = <?= json_encode($basePath) ?>;
+const currentDocumentPath = <?= json_encode($currentDocumentPath) ?>;
 const viewUrl = <?= json_encode(scriptUrl($basePath, 'view.php')) ?>;
 const filterUrl = <?= json_encode(scriptUrl($basePath, 'filter.php')) ?>;
 const uploadUrl = <?= json_encode(scriptUrl($basePath, 'upload.php')) ?>;
-const originalTree = treeContainer ? treeContainer.innerHTML : '';
+let originalTree = treeContainer ? treeContainer.innerHTML : '';
 const treeStateKey = 'wiki:open-dirs:' + basePath;
+const contentScrollStateKey = 'wiki:content-scroll:' + basePath;
+
+function restoreContentScroll() {
+    if (!contentPane || currentDocumentPath === '') {
+        return;
+    }
+
+    let raw = null;
+    try {
+        raw = sessionStorage.getItem(contentScrollStateKey);
+    } catch (_e) {
+        return;
+    }
+    if (!raw) {
+        return;
+    }
+
+    let state = null;
+    try {
+        state = JSON.parse(raw);
+    } catch (_e) {
+        sessionStorage.removeItem(contentScrollStateKey);
+        return;
+    }
+
+    if (
+        !state ||
+        state.path !== currentDocumentPath ||
+        typeof state.scrollTop !== 'number' ||
+        !Number.isFinite(state.scrollTop)
+    ) {
+        sessionStorage.removeItem(contentScrollStateKey);
+        return;
+    }
+
+    const applyScroll = () => {
+        const maxScrollTop = Math.max(0, contentPane.scrollHeight - contentPane.clientHeight);
+        contentPane.scrollTop = Math.min(Math.max(0, state.scrollTop), maxScrollTop);
+        sessionStorage.removeItem(contentScrollStateKey);
+    };
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(applyScroll);
+    });
+}
+
+function reloadCurrentDocument() {
+    if (!contentPane || currentDocumentPath === '') {
+        window.location.reload();
+        return;
+    }
+
+    try {
+        sessionStorage.setItem(contentScrollStateKey, JSON.stringify({
+            path: currentDocumentPath,
+            scrollTop: contentPane.scrollTop,
+        }));
+    } catch (_e) {
+    }
+
+    window.location.reload();
+}
 
 function loadOpenDirPaths() {
     try {
@@ -251,6 +316,42 @@ async function runFilter(value) {
     renderFiltered(data.paths || []);
 }
 
+async function refreshSidebarTree() {
+    if (!treeContainer) {
+        return;
+    }
+
+    try {
+        const refreshUrl = new URL(window.location.href);
+        refreshUrl.searchParams.set('_tree_refresh', Date.now().toString());
+        const res = await fetch(refreshUrl.toString(), { cache: 'no-store' });
+        if (!res.ok) {
+            return;
+        }
+
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const refreshedTree = doc.getElementById('tree');
+        if (!refreshedTree) {
+            return;
+        }
+
+        treeContainer.innerHTML = refreshedTree.innerHTML;
+        treeContainer.classList.remove('flat');
+        originalTree = treeContainer.innerHTML;
+        if (treeEmpty) {
+            treeEmpty.style.display = 'none';
+        }
+        initializeTreeState();
+
+        if (filterInput && filterInput.value.trim() !== '') {
+            await runFilter(filterInput.value);
+        }
+    } catch (_e) {
+    }
+}
+
 if (filterInput) {
     filterInput.addEventListener('input', () => runFilter(filterInput.value));
 }
@@ -360,6 +461,7 @@ async function uploadFiles(fileList) {
         const messages = [];
 
         if (uploaded.length > 0) {
+            await refreshSidebarTree();
             messages.push({ type: 'success', text: 'Uploaded: ' + uploaded.join(', ') });
         }
         if (skippedCount > 0) {
@@ -375,6 +477,10 @@ async function uploadFiles(fileList) {
         }
 
         renderUploadStatus(messages);
+        if (uploaded.includes(currentDocumentPath)) {
+            reloadCurrentDocument();
+            return;
+        }
     } catch (_e) {
         renderUploadStatus([{ type: 'error', text: 'Upload request failed.' }]);
     } finally {
@@ -550,6 +656,7 @@ document.addEventListener('keydown', event => {
 });
 
 initializeTreeState();
+restoreContentScroll();
 </script>
 </body>
 </html>
