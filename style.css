@@ -365,6 +365,15 @@ textarea {
   margin-top: 1.4em;
 }
 
+.page h1,
+.page h2,
+.page h3,
+.page h4,
+.page h5,
+.page h6 {
+  scroll-margin-top: calc(var(--search-control-height) + 36px);
+}
+
 .page pre {
   background: #0b1424;
   color: #d9e4f2;
@@ -373,6 +382,31 @@ textarea {
   border-radius: 10px;
   overflow: auto;
   font-family: var(--mono);
+}
+
+.page table {
+  max-width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.page th,
+.page td {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.page th {
+  background: #172238;
+  color: #edf6ff;
+  text-align: left;
+}
+
+.page tr:nth-child(even) td {
+  background: #101827;
 }
 
 .page code {

@@ -290,6 +290,7 @@ step "Core static assets are reachable"
 http_get "style.css"
 expect_code "200"
 expect_body_contains ".app-footer"
+expect_body_contains "scroll-margin-top"
 http_get "img-internal/icons8-search.svg"
 expect_code "200"
 expect_header_contains "Content-Type: image/"
@@ -342,6 +343,30 @@ expect_body_contains "data-square=\"a8\""
 expect_body_contains "aria-label=\"a8 black rook\""
 expect_body_contains "viewBox=\"0 0 480 480\""
 expect_body_not_contains "language-fen"
+
+step "Markdown tables render as HTML tables"
+printf -v table_content '# Table Check\n\n| Move pair | Why it is played |\n| --- | --- |\n| `1. e4 c5` | Black enters the Sicilian. |\n'
+save_doc "$PAGE_A" "$table_content"
+view_doc "$PAGE_A"
+expect_body_contains "<table>"
+expect_body_contains "<th>Move pair</th>"
+expect_body_contains "<td><code>1. e4 c5</code></td>"
+expect_body_not_contains "| Move pair | Why it is played |"
+
+step "Escaped markdown spaces render as non-breaking spaces"
+printf -v escaped_space_content '# Escaped Space Check\n\nEscaped\\ space\n\n`Escaped\\ space`\n\n```text\nEscaped\\ space\n```\n'
+save_doc "$PAGE_A" "$escaped_space_content"
+view_doc "$PAGE_A"
+expect_body_contains "Escaped&nbsp;space"
+expect_body_contains "<code>Escaped\\ space</code>"
+expect_body_contains "<pre><code class=\"language-text\">Escaped\\ space"
+
+step "Markdown heading fragments have matching generated IDs"
+printf -v heading_fragment_content '# Fragment Check\n\n[Jump](#target-section)\n\n### Target Section\n'
+save_doc "$PAGE_A" "$heading_fragment_content"
+view_doc "$PAGE_A"
+expect_body_contains "<a href=\"#target-section\">Jump</a>"
+expect_body_contains "<h3 id=\"target-section\">Target Section</h3>"
 
 save_doc "$PAGE_A" "$page_a_content"
 
