@@ -330,6 +330,21 @@ expect_body_contains "$SEARCH_TOKEN"
 expect_body_contains "Ambiguous link"
 expect_body_contains "Backlink:"
 
+step "FEN code blocks render as graphical chessboards"
+printf -v fen_content '# Chessboard\n\n```fen\nrnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\n```\n'
+save_doc "$PAGE_A" "$fen_content"
+view_doc "$PAGE_A"
+expect_body_contains "class=\"fen-board\""
+expect_body_contains "class=\"fen-board__svg\""
+expect_body_contains "class=\"fen-board__piece\""
+expect_body_contains "/img-internal/chess-pieces/sashite/black/rook.svg"
+expect_body_contains "data-square=\"a8\""
+expect_body_contains "aria-label=\"a8 black rook\""
+expect_body_contains "viewBox=\"0 0 480 480\""
+expect_body_not_contains "language-fen"
+
+save_doc "$PAGE_A" "$page_a_content"
+
 step "Disambiguation endpoint returns both matching targets"
 http_get "disambiguate.php" "name=Target"
 expect_code "200"

@@ -37,7 +37,7 @@ if (is_file($autoload)) {
 $basePath = '/wiki';
 $repo = new PageRepo($docDir, $imgDir);
 $linkResolver = new LinkResolver($repo, $basePath);
-$renderer = new MarkdownRenderer($linkResolver, $htmlCacheDir);
+$renderer = new MarkdownRenderer($linkResolver, $htmlCacheDir, $basePath);
 $indexer = new SearchIndexer($repo, $linkResolver, $searchIndexFile);
 $router = new Router($basePath);
 

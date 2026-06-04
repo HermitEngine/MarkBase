@@ -383,6 +383,63 @@ textarea {
   border-radius: 6px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fen-board {
+  --fen-board-size: min(100%, 336px);
+  width: var(--fen-board-size);
+  margin: 20px 0;
+  line-height: 0;
+}
+
+.fen-board__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: hidden;
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.fen-board__rect {
+  shape-rendering: crispEdges;
+}
+
+.fen-board__square--light .fen-board__rect {
+  fill: #f0d9b5;
+}
+
+.fen-board__square--dark .fen-board__rect {
+  fill: #b58863;
+}
+
+.fen-board__piece {
+  pointer-events: none;
+}
+
+.fen-board-source--invalid {
+  border-color: #9b4e4e;
+}
+
+.fen-board-source--invalid::before {
+  content: "Invalid FEN: " attr(data-fen-error);
+  display: block;
+  margin-bottom: 10px;
+  color: #ffb4a8;
+  font-family: var(--sans);
+  font-weight: 700;
+}
+
 mark {
   background: #4d6a10;
   color: #f4ffcf;

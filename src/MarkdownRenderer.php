@@ -11,13 +11,19 @@ use League\CommonMark\Extension\Table\TableExtension;
 
 final class MarkdownRenderer
 {
+    private const CACHE_VERSION = 7;
+
     private CommonMarkConverter $converter;
     private LinkResolver $linkResolver;
+    private FenBoardRenderer $fenBoardRenderer;
     private string $cacheDir;
+    private string $basePath;
 
-    public function __construct(LinkResolver $linkResolver, string $cacheDir)
+    public function __construct(LinkResolver $linkResolver, string $cacheDir, string $basePath = '')
     {
         $this->linkResolver = $linkResolver;
+        $this->basePath = rtrim($basePath, '/');
+        $this->fenBoardRenderer = new FenBoardRenderer($this->basePath);
         $this->cacheDir = rtrim($cacheDir, '/');
         if (!is_dir($this->cacheDir)) {
             mkdir($this->cacheDir, 0775, true);
@@ -34,13 +40,12 @@ final class MarkdownRenderer
 
     public function renderFile(string $path, string $filePath): string
     {
-        $mtime = filemtime($filePath) ?: 0;
-        $cacheKey = md5($path . '|' . $mtime);
+        $markdown = file_get_contents($filePath) ?: '';
+        $cacheKey = md5((string) self::CACHE_VERSION . '|' . $this->basePath . '|' . $path . '|' . md5($markdown));
         $cacheFile = $this->cacheDir . '/' . $cacheKey . '.html';
         if (is_file($cacheFile)) {
             return file_get_contents($cacheFile) ?: '';
         }
-        $markdown = file_get_contents($filePath) ?: '';
         $html = $this->render($path, $markdown);
         file_put_contents($cacheFile, $html);
         return $html;
@@ -59,6 +64,8 @@ final class MarkdownRenderer
         libxml_use_internal_errors(true);
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
+
+        $this->rewriteFenBlocks($dom);
 
         foreach ($dom->getElementsByTagName('a') as $anchor) {
             $href = $anchor->getAttribute('href');
@@ -82,6 +89,51 @@ final class MarkdownRenderer
             }
         }
 
-        return $dom->saveHTML() ?: $html;
+        $output = $dom->saveHTML() ?: $html;
+        return preg_replace('/^<\?xml encoding="utf-8" \?>\s*/', '', $output) ?? $output;
+    }
+
+    private function rewriteFenBlocks(\DOMDocument $dom): void
+    {
+        $preNodes = [];
+        foreach ($dom->getElementsByTagName('pre') as $pre) {
+            $preNodes[] = $pre;
+        }
+
+        foreach ($preNodes as $pre) {
+            $code = $this->firstCodeChild($pre);
+            if ($code === null || !$this->isFenCodeBlock($code)) {
+                continue;
+            }
+
+            $fen = $code->textContent;
+            $board = $this->fenBoardRenderer->render($dom, $fen);
+            if ($board === null) {
+                $parsed = $this->fenBoardRenderer->parse($fen);
+                $pre->setAttribute('class', trim($pre->getAttribute('class') . ' fen-board-source fen-board-source--invalid'));
+                $pre->setAttribute('data-fen-error', $parsed['error'] ?? 'Invalid FEN.');
+                continue;
+            }
+
+            if ($pre->parentNode !== null) {
+                $pre->parentNode->replaceChild($board, $pre);
+            }
+        }
+    }
+
+    private function firstCodeChild(\DOMElement $pre): ?\DOMElement
+    {
+        foreach ($pre->childNodes as $child) {
+            if ($child instanceof \DOMElement && strtolower($child->tagName) === 'code') {
+                return $child;
+            }
+        }
+        return null;
+    }
+
+    private function isFenCodeBlock(\DOMElement $code): bool
+    {
+        $class = ' ' . strtolower($code->getAttribute('class')) . ' ';
+        return str_contains($class, ' language-fen ') || str_contains($class, ' fen ');
     }
 }
